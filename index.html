@@ -1,59 +1,37 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Votação do Congresso Policial</title>
+    <title>Votação do Congresso Policial e Exibição de NFT</title>
     <style>
-        body, html {
-            height: 100%;
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #282c34;
-            color: white;
-            text-align: center;
-        }
-
-        #app {
+        body {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            gap: 20px;
-            height: 100%;
+            height: 100vh;
+            flex-direction: column;
         }
-
-        button {
-            background-color: #008c76;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        button:hover {
-            background-color: #00bfa5;
+        .hidden {
+            display: none;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.3.0/dist/web3.min.js"></script>
 </head>
 <body>
-    <div id="app">
-        <div id="connect">
-            <button id="walletConnectButton">Conectar Carteira</button>
-        </div>
-        <div id="vote" style="display: none;">
-            <button id="approveButton">Aprovar</button>
-            <button id="disapproveButton">Reprovar</button>
-        </div>
-        <div id="nft" style="display: none;">NFT enviado!</div>
-        <div id="panel">Painel de Votação</div>
+    <button id="connectWallet">Connect Wallet</button>
+    <div id="votingPanel" class="hidden">
+        <button id="vote-approve">Approve</button>
+        <button id="vote-disapprove">Disapprove</button>
     </div>
+    <div id="nftDisplay" class="hidden"></div>
 
     <script>
-        const contractAddress = "0x3d6f595fa5F2d1165db36C9aD7FfeCe7C13037Fb";
+        let userAccount;
+        let contract;
+        const contractAddress = '0x3d6f595fa5F2d1165db36C9aD7FfeCe7C13037Fb';
         const abi = [
 	{
 		"inputs": [],
@@ -762,52 +740,52 @@
 	}
 ];
 
-        window.addEventListener('load', function () {
-            const walletButton = document.getElementById('walletConnectButton');
-            const approveButton = document.getElementById('approveButton');
-            const disapproveButton = document.getElementById('disapproveButton');
-            let web3;
-            let contract;
-            let accounts;
-
-            walletButton.onclick = async () => {
-                if (window.ethereum) {
-                    web3 = new Web3(window.ethereum);
-                    try {
-                        await window.ethereum.enable(); // Solicita acesso à conta
-                        accounts = await web3.eth.getAccounts();
-                        contract = new web3.eth.Contract(abi, contractAddress);
-                        document.getElementById('vote').style.display = 'block';
-                    } catch (error) {
-                        console.error("Access denied!", error);
-                    }
-                } else {
-                    console.log('Please install MetaMask!');
-                }
-            };
-
-            approveButton.onclick = () => vote(true);
-            disapproveButton.onclick = () => vote(false);
-
-            async function vote(approval) {
-                const method = approval ? contract.methods.approve() : contract.methods.disapprove();
+        async function connectWallet() {
+            if (window.ethereum) {
                 try {
-                    await method.send({ from: accounts[0] });
-                    document.getElementById('nft').style.display = 'block';
-                    updateVotingPanel();
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    userAccount = accounts[0];
+                    document.getElementById('votingPanel').classList.remove('hidden');
+                    // Inicialização do contrato
+                    const web3 = new Web3(window.ethereum);
+                    contract = new web3.eth.Contract(abi, contractAddress);
                 } catch (error) {
-                    console.error(error);
+                    console.error('User denied account access');
                 }
+            } else {
+                console.log('MetaMask is not installed!');
             }
+        }
 
-            function updateVotingPanel() {
-                // Atualiza o painel de votação
-                document.getElementById('panel').innerHTML = 'Atualizando...';
-                // Implemente a lógica conforme necessário
+        async function vote(approval) {
+            try {
+                await contract.methods.vote(approval).send({ from: userAccount });
+                console.log(`Voted ${approval ? "approve" : "disapprove"}`);
+                displayNFTAfterVote();
+            } catch (error) {
+                console.error('Error sending vote:', error);
             }
+        }
 
-            setInterval(updateVotingPanel, 5000); // Atualiza o painel a cada 5 segundos
-        });
+        async function displayNFTAfterVote() {
+            const tokenCount = await contract.methods.balanceOf(userAccount).call();
+            if (tokenCount > 0) {
+                const tokenId = await contract.methods.tokenOfOwnerByIndex(userAccount, tokenCount - 1).call();
+                const tokenURI = await contract.methods.tokenURI(tokenId).call();
+                const nftDisplay = document.getElementById('nftDisplay');
+                // Assumindo que tokenURI é uma URL direta para o metadado do NFT que contém a imagem.
+                fetch(tokenURI)
+                    .then(response => response.json())
+                    .then(data => {
+                        nftDisplay.innerHTML = `<img src="${data.image}" alt="NFT Image" style="width: 200px; height: auto;">`;
+                        nftDisplay.classList.remove('hidden');
+                    });
+            }
+        }
+
+        document.getElementById('connectWallet').addEventListener('click', connectWallet);
+        document.getElementById('vote-approve').addEventListener('click', () => vote(true));
+        document.getElementById('vote-disapprove').addEventListener('click', () => vote(false));
     </script>
 </body>
 </html>
