@@ -37,6 +37,12 @@
         #votingPanel {
             margin-top: 20px;
         }
+
+        #finalResult {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -62,6 +68,8 @@
             <h2>Voting Panel</h2>
             <p id="votingCount">Votes: 0</p>
         </div>
+
+        <div id="finalResult"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/web3@1.5.3/dist/web3.min.js"></script>
@@ -69,7 +77,7 @@
         let web3;
         let contract;
 
-      // Adicione a ABI do seu contrato aqui
+        // Adicione a ABI do seu contrato aqui
         const CONTRACT_ABI = [
 	{
 		"inputs": [],
@@ -815,16 +823,33 @@
                 // Update voting count
                 const votingCount = await contract.methods.totalSupply().call();
                 document.getElementById('votingCount').innerText = `Votes: ${votingCount}`;
+
+                // Show final result
+                showFinalResult();
             } catch (error) {
                 console.error(error);
             }
         }
 
-        // Polling to update voting count every 5 seconds
+        // Polling to update voting count and show final result every 5 seconds
         setInterval(async () => {
             const votingCount = await contract.methods.totalSupply().call();
             document.getElementById('votingCount').innerText = `Votes: ${votingCount}`;
+
+            // Show final result
+            showFinalResult();
         }, 5000);
+
+        async function showFinalResult() {
+            const approvalCount = await contract.methods.approvalCount().call();
+            const rejectionCount = await contract.methods.rejectionCount().call();
+
+            if (approvalCount > rejectionCount) {
+                document.getElementById('finalResult').innerText = 'Final Result: Approved';
+            } else {
+                document.getElementById('finalResult').innerText = 'Final Result: Not Approved';
+            }
+        }
     </script>
 </body>
 </html>
